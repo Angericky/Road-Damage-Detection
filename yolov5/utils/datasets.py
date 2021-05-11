@@ -4,6 +4,7 @@ import os
 import random
 import shutil
 import time
+import math
 from pathlib import Path
 from threading import Thread
 
@@ -107,7 +108,7 @@ class _RepeatSampler(object):
 
 
 class LoadImages:  # for inference
-    def __init__(self, path, img_size=640):
+    def __init__(self, path, img_size=640, interval=1):
         p = str(Path(path))  # os-agnostic
         p = os.path.abspath(p)  # absolute path
         if '*' in p:
@@ -128,6 +129,8 @@ class LoadImages:  # for inference
         self.nf = ni + nv  # number of files
         self.video_flag = [False] * ni + [True] * nv
         self.mode = 'images'
+        self.save_mode = ''
+        self.interval = interval
         if any(videos):
             self.new_video(videos[0])  # new video
         else:
@@ -147,7 +150,16 @@ class LoadImages:  # for inference
         if self.video_flag[self.count]:
             # Read video
             self.mode = 'video'
-            ret_val, img0 = self.cap.read()
+            if self.save_mode == '':
+                self.save_mode = 'video'
+            frameRate = int(self.cap.get(cv2.CAP_PROP_FPS) * self.interval)
+            frame_idx = 0
+            while True:
+                ret_val, img0 = self.cap.read()
+                if frame_idx == frameRate - 1:
+                    break
+                frame_idx = frame_idx + 1
+
             if not ret_val:
                 self.count += 1
                 self.cap.release()
@@ -163,6 +175,8 @@ class LoadImages:  # for inference
 
         else:
             # Read image
+            if self.save_mode == '':
+                self.save_mode = 'images'
             self.count += 1
             img0 = cv2.imread(path)  # BGR
             assert img0 is not None, 'Image Not Found ' + path
@@ -181,7 +195,8 @@ class LoadImages:  # for inference
     def new_video(self, path):
         self.frame = 0
         self.cap = cv2.VideoCapture(path)
-        self.nframes = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        all_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.nframes = math.floor(all_frames / int(self.cap.get(cv2.CAP_PROP_FPS)) / self.interval)
 
     def __len__(self):
         return self.nf  # number of files
@@ -363,7 +378,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.stride = stride
 
         # Define labels
-        sa, sb = os.sep + 'images' + os.sep, os.sep + 'labels' + os.sep  # /images/, /labels/ substrings
+        sa, sb = os.sep + 'IMG' + os.sep, os.sep + 'labels' + os.sep  # /images/, /labels/ substrings
         self.label_files = [x.replace(sa, sb, 1).replace(os.path.splitext(x)[-1], '.txt') for x in self.img_files]
 
         # Check cache
@@ -745,6 +760,7 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
     img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
+    
     return img, ratio, (dw, dh)
 
 

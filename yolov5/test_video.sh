@@ -1,0 +1,1 @@
+python3 detect.py --weights runs/exp28/weights/best.pt --img 640 --source /dev/disk2/zjj/data/abnormal_detection/video/ --conf-thres 0.20 --iou-thres 0.3 --agnostic-nms --output ../inference/video_img --interval 2 --save-as-image

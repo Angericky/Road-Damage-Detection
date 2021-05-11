@@ -927,6 +927,8 @@ def output_to_target(output, width, height):
 
     targets = []
     for i, o in enumerate(output):
+        if isinstance(o, torch.Tensor):
+            o = o.cpu().numpy()
         if o is not None:
             for pred in o:
                 box = pred[:4]
@@ -938,7 +940,6 @@ def output_to_target(output, width, height):
                 cls = int(pred[5])
 
                 targets.append([i, cls, x, y, w, h, conf])
-
     return np.array(targets)
 
 
@@ -1086,7 +1087,10 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
         cv2.rectangle(mosaic, (block_x, block_y), (block_x + w, block_y + h), (255, 255, 255), thickness=3)
 
     if fname is not None:
-        mosaic = cv2.resize(mosaic, (int(ns * w * 0.5), int(ns * h * 0.5)), interpolation=cv2.INTER_AREA)
+        if int(ns) == 1:
+            mosaic = cv2.resize(mosaic, (int(ns * w), int(ns * h)), interpolation=cv2.INTER_AREA)
+        else:
+            mosaic = cv2.resize(mosaic, (int(ns * w * 0.5), int(ns * h * 0.5)), interpolation=cv2.INTER_AREA)
         cv2.imwrite(fname, cv2.cvtColor(mosaic, cv2.COLOR_BGR2RGB))
 
     return mosaic

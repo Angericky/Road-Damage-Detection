@@ -318,10 +318,19 @@ def train(hyp, opt, device, tb_writer=None):
                                                  single_cls=opt.single_cls,
                                                  dataloader=testloader,
                                                  save_dir=log_dir)
+                results_train, maps_train, times_train = test.test(opt.data,
+                                                 batch_size=total_batch_size,
+                                                 imgsz=imgsz_test,
+                                                 model=ema.ema,
+                                                 single_cls=opt.single_cls,
+                                                 dataloader=dataloader,
+                                                 save_dir=log_dir)
 
             # Write
             with open(results_file, 'a') as f:
                 f.write(s + '%10.4g' * 7 % results + '\n')  # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
+                f.write(s + '%10.4g' * 7 % results_train + '\n')
+                
             if len(opt.name) and opt.bucket:
                 os.system('gsutil cp %s gs://%s/results/results%s.txt' % (results_file, opt.bucket, opt.name))
 

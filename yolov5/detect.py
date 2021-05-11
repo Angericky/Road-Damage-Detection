@@ -23,8 +23,8 @@ csv_f = open("results.csv","w")
 
 
 def detect(save_img=False):
-    out, source, weights, view_img, save_txt, imgsz = \
-        opt.output, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
+    out, source, weights, view_img, save_txt, imgsz, interval = \
+        opt.output, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.interval
     webcam = source.isnumeric() or source.startswith(('rtsp://', 'rtmp://', 'http://')) or source.endswith('.txt')
 
     # Initialize
@@ -56,7 +56,10 @@ def detect(save_img=False):
         dataset = LoadStreams(source, img_size=imgsz)
     else:
         save_img = True
-        dataset = LoadImages(source, img_size=imgsz)
+        dataset = LoadImages(source, img_size=imgsz, interval=interval)
+    
+    if opt.save_as_image:
+        dataset.save_mode = 'images'    
 
     # Get names and colors
     names = model.module.names if hasattr(model, 'module') else model.names
@@ -94,10 +97,20 @@ def detect(save_img=False):
             else:
                 p, s, im0 = path, '', im0s
 
-            save_path = str(Path(out) / Path(p).name)
+            if dataset.save_mode == 'images' and dataset.mode == 'video':
+                root_path = str(Path(out) / Path(p).name.split('.')[0])
+                if not os.path.exists(root_path):
+                    os.makedirs(root_path)
+                save_path = str(Path(root_path) / ('%d.jpg' % (dataset.frame * dataset.interval * 1000)))
+            else:
+                save_path = str(Path(out) / Path(p).name)
+
             txt_path = str(Path(out) / Path(p).stem) + ('_%g' % dataset.frame if dataset.mode == 'video' else '')
             s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+            
+            if det is None and dataset.save_mode == 'images':
+                continue
             if det is not None and len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
@@ -133,7 +146,7 @@ def detect(save_img=False):
 
             # Save results (image with detections)
             if save_img:
-                if dataset.mode == 'images':
+                if dataset.save_mode == 'images':
                     cv2.imwrite(save_path, im0)
                 else:
                     if vid_path != save_path:  # new video
@@ -142,7 +155,7 @@ def detect(save_img=False):
                             vid_writer.release()  # release previous video writer
 
                         fourcc = 'mp4v'  # output video codec
-                        fps = vid_cap.get(cv2.CAP_PROP_FPS)
+                        fps = 1 / interval
                         w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                         h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*fourcc), fps, (w, h))
@@ -171,6 +184,8 @@ if __name__ == '__main__':
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
+    parser.add_argument('--interval', type=float, default=0.04, help='inference time interval for processing videos')
+    parser.add_argument('--save-as-image', action='store_true', help='save as images')
     opt = parser.parse_args()
     print(opt)
 

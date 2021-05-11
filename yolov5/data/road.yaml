@@ -1,4 +1,4 @@
-train: datasets/road2020/train.txt
-val: datasets/road2020/val.txt
+train: data/train_aug.txt
+val: data/test.txt
 nc: 4
-names: ['D00','D10','D20','D40']
+names: ['Transverse Crack','Longitudinal Crack','Alligator Crack','Pothole Damage']
